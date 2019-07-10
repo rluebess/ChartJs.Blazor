@@ -8,6 +8,8 @@ using ChartJs.Blazor.ChartJS.Common.Legends.OnHover;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace ChartJs.Blazor.ChartJS
 {
@@ -17,10 +19,13 @@ namespace ChartJs.Blazor.ChartJS
         {
             try
             {
-                return jsRuntime.InvokeAsync<bool>("ChartJSInterop.SetupChart", StripNulls(chartConfig));
+                dynamic dynParam = StripNulls(chartConfig);
+                Dictionary<string, object> param = ConvertDynamicToDictonary(dynParam);
+                return jsRuntime.InvokeAsync<bool>("ChartJSInterop.SetupChart", param);
             }
             catch (Exception exp)
             {
+                Console.WriteLine($"ChartJSInterop.SetupChart Exception:{exp}");
             }
 
             return Task.FromResult<bool>(false);
@@ -30,10 +35,13 @@ namespace ChartJs.Blazor.ChartJS
         {
             try
             {
-                return jsRuntime.InvokeAsync<bool>("ChartJSInterop.UpdateChart", StripNulls(chartConfig));
+                dynamic dynParam = StripNulls(chartConfig);
+                Dictionary<string, object> param = ConvertDynamicToDictonary(dynParam);
+                return jsRuntime.InvokeAsync<bool>("ChartJSInterop.UpdateChart", param);
             }
             catch (Exception exp)
             {
+                Console.WriteLine($"ChartJSInterop.UpdateChart Exception:{exp}");
             }
 
             return Task.FromResult<bool>(false);
@@ -52,11 +60,13 @@ namespace ChartJs.Blazor.ChartJS
         {
             // Serializing with the custom serializer settings remove null members
             var cleanChartConfigStr = JsonConvert.SerializeObject(chartConfig, JsonSerializerSettings);
+            Console.WriteLine("Object Serialized");
 
             // Get back an ExpandoObject dynamic with the clean config - having an ExpandoObject allows us to add/replace members regardless of type
             dynamic clearConfigExpando = JsonConvert.DeserializeObject(cleanChartConfigStr,
                 typeof(ExpandoObject),
                 new ExpandoObjectConverter());
+            Console.WriteLine("Object Deserialized");
 
             // Restore any .net refs that need to be passed intact
             var dynamicChartConfig = (dynamic) chartConfig;
@@ -87,5 +97,35 @@ namespace ChartJs.Blazor.ChartJS
                 NamingStrategy = new CamelCaseNamingStrategy()
             }
         };
+
+        private static Dictionary<string, object> ConvertDynamicToDictonary(IDictionary<string, object> value)
+        {
+            return value.ToDictionary(
+                p => p.Key,
+                p =>
+                {
+            // if it's another IDict (might be a ExpandoObject or could also be an actual Dict containing ExpandoObjects) just go trough it recursively
+            if (p.Value is IDictionary<string, object> dict)
+                    {
+                        return ConvertDynamicToDictonary(dict);
+                    }
+
+            // if it's an IEnumerable, it might have ExpandoObjects inside, so check for that
+            if (p.Value is IEnumerable<object> list)
+                    {
+                        if (list.Any(o => o is ExpandoObject))
+                        {
+                    // if it does contain ExpandoObjects, take all of those and also go trough them recursively
+                    return list
+                                .Where(o => o is ExpandoObject)
+                                .Select(o => ConvertDynamicToDictonary((ExpandoObject)o));
+                        }
+                    }
+
+            // neither an IDict nor an IEnumerable -> it's probably fine to just return the value it has
+            return p.Value;
+                }
+            );
+        }
     }
 }
