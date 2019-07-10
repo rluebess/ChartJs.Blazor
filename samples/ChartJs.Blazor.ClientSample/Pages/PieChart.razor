@@ -1,9 +1,6 @@
 ﻿@page "/piechart"
 @using ChartJs.Blazor.ChartJS.Common
 @using ChartJs.Blazor.ChartJS.PieChart
-@using Newtonsoft.Json
-@using ChartJs.Blazor.Charts
-@using ChartJs.Blazor.Util.Color
 
 <h1>Pie Chart</h1>
 <div class="row">
@@ -12,8 +9,7 @@
 <ChartJsPieChart @ref="pieChartJs" Config="@pieChartConfig" Width="600" Height="300" />
 
 
-@functions{
-
+@functions {
     private PieChartConfig pieChartConfig { get; set; }
     ChartJsPieChart pieChartJs;
 
@@ -69,8 +65,5 @@
                 }
             }
         };
-        Console.WriteLine($"PieChartObjectReference: {pieChartJs}");
-        pieChartJs.Update();
     }
-
 }
